@@ -98,6 +98,8 @@ stream = AsyncStream()
 outputs_folder = './outputs/'
 os.makedirs(outputs_folder, exist_ok=True)
 
+# Queue to handle multiple tasks
+task_queue = []
 
 @torch.no_grad()
 def worker(input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf):
@@ -329,6 +331,32 @@ def end_process():
     stream.input_queue.push('end')
 
 
+def add_to_queue(input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf):
+    task = {
+        'input_image': input_image,
+        'prompt': prompt,
+        'n_prompt': n_prompt,
+        'seed': seed,
+        'total_second_length': total_second_length,
+        'latent_window_size': latent_window_size,
+        'steps': steps,
+        'cfg': cfg,
+        'gs': gs,
+        'rs': rs,
+        'gpu_memory_preservation': gpu_memory_preservation,
+        'use_teacache': use_teacache,
+        'mp4_crf': mp4_crf
+    }
+    task_queue.append(task)
+    return gr.update(value="Task added to queue")
+
+
+def process_queue():
+    while task_queue:
+        task = task_queue.pop(0)
+        process(**task)
+
+
 quick_prompts = [
     'The girl dances gracefully, with clear movements, full of charm.',
     'A character doing some simple body movements.',
@@ -350,6 +378,7 @@ with block:
             with gr.Row():
                 start_button = gr.Button(value="Start Generation")
                 end_button = gr.Button(value="End Generation", interactive=False)
+                add_to_queue_button = gr.Button(value="Add to Queue")
 
             with gr.Group():
                 use_teacache = gr.Checkbox(label='Use TeaCache', value=True, info='Faster speed, but often makes hands and fingers slightly worse.')
@@ -380,7 +409,11 @@ with block:
     ips = [input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf]
     start_button.click(fn=process, inputs=ips, outputs=[result_video, preview_image, progress_desc, progress_bar, start_button, end_button])
     end_button.click(fn=end_process)
+    add_to_queue_button.click(fn=add_to_queue, inputs=ips, outputs=[gr.update(value="Task added to queue")])
 
+    # Add a button to process the queue
+    process_queue_button = gr.Button(value="Process Queue")
+    process_queue_button.click(fn=process_queue)
 
 block.launch(
     server_name=args.server,
