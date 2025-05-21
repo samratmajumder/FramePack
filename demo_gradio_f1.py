@@ -357,6 +357,17 @@ def process_queue():
         process(**task)
 
 
+def view_queue():
+    return [f"Task {i+1}: {task['prompt']}" for i, task in enumerate(task_queue)]
+
+
+def remove_task(index):
+    if 0 <= index < len(task_queue):
+        task_queue.pop(index)
+        return f"Task {index+1} removed from queue"
+    return f"Invalid task index: {index}"
+
+
 quick_prompts = [
     'The girl dances gracefully, with clear movements, full of charm.',
     'A character doing some simple body movements.',
@@ -414,6 +425,16 @@ with block:
     # Add a button to process the queue
     process_queue_button = gr.Button(value="Process Queue")
     process_queue_button.click(fn=process_queue)
+
+    # Add a block to show the tasks added to the queue
+    with gr.Row():
+        view_queue_button = gr.Button(value="View Queue")
+        queue_list = gr.Textbox(label="Queue", interactive=False)
+        view_queue_button.click(fn=view_queue, outputs=queue_list)
+
+        remove_task_index = gr.Number(label="Task Index to Remove", value=0, precision=0)
+        remove_task_button = gr.Button(value="Remove Task")
+        remove_task_button.click(fn=remove_task, inputs=remove_task_index, outputs=queue_list)
 
 block.launch(
     server_name=args.server,
