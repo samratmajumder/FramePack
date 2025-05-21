@@ -98,6 +98,8 @@ stream = AsyncStream()
 outputs_folder = './outputs/'
 os.makedirs(outputs_folder, exist_ok=True)
 
+# Queue to handle multiple tasks
+task_queue = []
 
 @torch.no_grad()
 def worker(input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf):
@@ -329,6 +331,43 @@ def end_process():
     stream.input_queue.push('end')
 
 
+def add_to_queue(input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf):
+    task = {
+        'input_image': input_image,
+        'prompt': prompt,
+        'n_prompt': n_prompt,
+        'seed': seed,
+        'total_second_length': total_second_length,
+        'latent_window_size': latent_window_size,
+        'steps': steps,
+        'cfg': cfg,
+        'gs': gs,
+        'rs': rs,
+        'gpu_memory_preservation': gpu_memory_preservation,
+        'use_teacache': use_teacache,
+        'mp4_crf': mp4_crf
+    }
+    task_queue.append(task)
+    return "Task added to queue"
+
+
+def process_queue():
+    while task_queue:
+        task = task_queue.pop(0)
+        process(**task)
+
+
+def view_queue():
+    return [f"Task {i+1}: {task['prompt']}" for i, task in enumerate(task_queue)]
+
+
+def remove_task(index):
+    if 0 <= index < len(task_queue):
+        task_queue.pop(index)
+        return f"Task {index+1} removed from queue"
+    return f"Invalid task index: {index}"
+
+
 quick_prompts = [
     'The girl dances gracefully, with clear movements, full of charm.',
     'A character doing some simple body movements.',
@@ -350,6 +389,7 @@ with block:
             with gr.Row():
                 start_button = gr.Button(value="Start Generation")
                 end_button = gr.Button(value="End Generation", interactive=False)
+                add_to_queue_button = gr.Button(value="Add to Queue")
 
             with gr.Group():
                 use_teacache = gr.Checkbox(label='Use TeaCache', value=True, info='Faster speed, but often makes hands and fingers slightly worse.')
@@ -380,7 +420,21 @@ with block:
     ips = [input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf]
     start_button.click(fn=process, inputs=ips, outputs=[result_video, preview_image, progress_desc, progress_bar, start_button, end_button])
     end_button.click(fn=end_process)
+    add_to_queue_button.click(fn=add_to_queue, inputs=ips, outputs=[gr.Textbox.update(value="Task added to queue")])
 
+    # Add a button to process the queue
+    process_queue_button = gr.Button(value="Process Queue")
+    process_queue_button.click(fn=process_queue)
+
+    # Add a block to show the tasks added to the queue
+    with gr.Row():
+        view_queue_button = gr.Button(value="View Queue")
+        queue_list = gr.Textbox(label="Queue", interactive=False)
+        view_queue_button.click(fn=view_queue, outputs=queue_list)
+
+        remove_task_index = gr.Number(label="Task Index to Remove", value=0, precision=0)
+        remove_task_button = gr.Button(value="Remove Task")
+        remove_task_button.click(fn=remove_task, inputs=remove_task_index, outputs=queue_list)
 
 block.launch(
     server_name=args.server,
