@@ -348,7 +348,7 @@ def add_to_queue(input_image, prompt, n_prompt, seed, total_second_length, laten
         'mp4_crf': mp4_crf
     }
     task_queue.append(task)
-    return gr.update(value="Task added to queue")
+    return "Task added to queue"
 
 
 def process_queue():
@@ -409,7 +409,7 @@ with block:
     ips = [input_image, prompt, n_prompt, seed, total_second_length, latent_window_size, steps, cfg, gs, rs, gpu_memory_preservation, use_teacache, mp4_crf]
     start_button.click(fn=process, inputs=ips, outputs=[result_video, preview_image, progress_desc, progress_bar, start_button, end_button])
     end_button.click(fn=end_process)
-    add_to_queue_button.click(fn=add_to_queue, inputs=ips, outputs=[gr.update(value="Task added to queue")])
+    add_to_queue_button.click(fn=add_to_queue, inputs=ips, outputs=[gr.Textbox.update(value="Task added to queue")])
 
     # Add a button to process the queue
     process_queue_button = gr.Button(value="Process Queue")
